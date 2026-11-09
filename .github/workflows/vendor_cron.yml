@@ -1,10 +1,9 @@
 name: Run Mysterious Vendor Notifier
 
 on:
-  # Lịch tự động chạy (Mặc định cứ mỗi 6 tiếng script sẽ chạy 1 lần để kiểm tra)
+  # Lịch tự động chạy
   schedule:
-    - cron: '0 */6 * * *'
-  # Cho phép bấm nút chạy thủ công trên web bất cứ lúc nào bạn muốn
+    - cron: '0 20 * * *'
   workflow_dispatch:
 
 jobs:
