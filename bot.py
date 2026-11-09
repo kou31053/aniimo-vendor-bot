@@ -24,11 +24,10 @@ def fetch_live_vendor_data():
         server_name = "máy chủ Châu Á - Thái Bình Dương"
 
         try:
-            # 1. Lấy thời gian đếm ngược restock từ vdp-foot
+            # 1. Lấy thời gian đếm ngược restock
             clock_el = page.locator(".vdp-foot").first
             if clock_el.count() > 0:
                 clock_text = clock_el.inner_text().strip()
-                # Lọc lấy phần thời gian (ví dụ: "Nhập hàng mới sau 10 giờ 4 phút")
                 restocks_in = clock_text.replace("Nhập hàng mới sau", "").strip()
 
             # 2. Quét tất cả các thẻ <li> nằm bên trong khối danh sách sản phẩm .vdp-goods
@@ -44,9 +43,14 @@ def fetch_live_vendor_data():
                 text_el = li.locator("span.vdp-text")
                 item_limit = text_el.inner_text().strip() if text_el.count() > 0 else "Giới hạn ngày 5"
 
-                # Lấy giá tiền từ thẻ num
-                num_el = li.locator("span.num")
-                item_price = num_el.inner_text().strip() if num_el.count() > 0 else "32.000"
+                # Lấy chính xác giá tiền bằng cách quét các thẻ chứa định dạng giá hoặc dùng text của vdp-price
+                price_el = li.locator("span.vdp-price span.num")
+                if price_el.count() > 0:
+                    item_price = price_el.inner_text().strip()
+                else:
+                    # Phương án dự phòng lấy giá theo nội dung text bên trong khối giá
+                    price_container = li.locator("span.vdp-price")
+                    item_price = price_container.inner_text().strip() if price_container.count() > 0 else "32.000"
 
                 if item_name:
                     items_list.append({
