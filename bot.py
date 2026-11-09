@@ -24,11 +24,10 @@ def fetch_live_vendor_data():
         server_name = "máy chủ Châu Á - Thái Bình Dương"
 
         try:
-            # 1. Lấy thời gian đếm ngược restock từ vdp-foot chuẩn xác
+            # 1. Lấy thời gian đếm ngược restock từ vdp-foot
             clock_el = page.locator(".vdp-foot").first
             if clock_el.count() > 0:
                 clock_text = clock_el.inner_text().strip()
-                # Lọc bỏ chữ "Không hiện lại" nếu có ở nút bấm bên cạnh
                 clock_text = clock_text.replace("Không hiện lại", "").strip()
                 restocks_in = clock_text.replace("Nhập hàng mới sau", "").strip()
 
@@ -37,20 +36,24 @@ def fetch_live_vendor_data():
             print(f"🔍 Số lượng sản phẩm tìm thấy trong HTML: {len(item_elements)}")
 
             for li in item_elements:
-                # Lấy tên item từ thuộc tính title của thẻ gcard
+                # Lấy tên item chính xác từ thuộc tính title của thẻ gcard
                 gcard = li.locator("span.gcard")
                 item_name = gcard.get_attribute("title") if gcard.count() > 0 else "Vật phẩm đặc biệt"
 
-                # Lấy giới hạn từ thẻ vdp-text
-                text_el = li.locator("span.vdp-text")
-                item_limit = text_el.inner_text().strip() if text_el.count() > 0 else "Giới hạn ngày 5"
+                # Lọc lấy đúng dòng giới hạn (chứa chữ "Giới hạn" hoặc "limit")
+                item_limit = "Giới hạn ngày 5"
+                text_elements = li.locator("span.vdp-text").all()
+                for t_el in text_elements:
+                    t_text = t_el.inner_text().strip()
+                    if "Giới hạn" in t_text or "limit" in t_text:
+                        item_limit = t_text
+                        break
 
-                # Lấy giá tiền từ thẻ num bên trong vdp-price (phần tử thứ 2 hoặc phần tử có chứa số tiền)
+                # Lấy giá tiền từ thẻ num bên trong vdp-price
                 price_elements = li.locator("span.vdp-price span.num").all()
                 item_price = "32.000"
                 for p_el in price_elements:
                     p_text = p_el.inner_text().strip()
-                    # Giá tiền thường chứa dấu chấm hoặc số lớn hơn đơn vị giới hạn đơn thuần
                     if "." in p_text or len(p_text) > 2:
                         item_price = p_text
                         break
@@ -83,7 +86,7 @@ def send_discord_webhook(data):
 
     fields = []
     for item in data["items"]:
-        # Chỉ hiển thị giới hạn mua và giá tiền kèm emote đồng vàng, loại bỏ hoàn toàn các thông tin thừa
+        # Chỉ hiển thị giới hạn mua gọn gàng và giá tiền kèm đồng vàng, loại bỏ hoàn toàn tên bị dupe
         fields.append({
             "name": f"✨ {item['name']}",
             "value": f"🛒 `{item['limit']}`\n **{item['price']}**<:credit:1569277505821474977>",
@@ -113,7 +116,7 @@ def send_discord_webhook(data):
     if response.status_code not in [200, 204]:
         raise Exception(f"Discord từ chối nhận Webhook, mã lỗi: {response.status_code} - {response.text}")
     
-    print("✅ Đã tối ưu giao diện và gửi thông báo hoàn hảo lên Discord!")
+    print("✅ Đã fix triệt để lỗi lặp tên và gửi thông báo hoàn hảo lên Discord!")
 
 if __name__ == "__main__":
     try:
