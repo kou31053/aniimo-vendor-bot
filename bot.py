@@ -24,38 +24,60 @@ def fetch_live_vendor_data():
         server_name = "máy chủ Châu Á - Thái Bình Dương"
 
         try:
-            # Tìm các khối item thực tế trên trang
-            item_elements = page.locator(".vendor-item, div:has-text('Giới hạn ngày'), div:has-text('Daily limit')").all()
-            print(f"🔍 Số lượng phần tử tìm thấy trên trang: {len(item_elements)}")
+            # Chọn đúng các thẻ chứa thông tin chi tiết từng món đồ bên trong danh sách shop
+            # Thay vì quét toàn trang, ta tìm các khối item cụ thể
+            product_cards = page.locator(".grid > div, .vendor-item, div:has-text('Giới hạn ngày')").all()
             
-            # Trích xuất dữ liệu từ các phần tử tìm được
-            for el in item_elements:
-                text_content = el.inner_text().strip()
-                if text_content:
-                    lines = text_content.split('\n')
-                    if len(lines) >= 2:
-                        item_name = lines[0].strip()
-                        item_limit = lines[1].strip() if len(lines) > 1 else "Daily limit: 5"
-                        item_price = lines[2].strip() if len(lines) > 2 else "32.000"
+            for card in product_cards:
+                text_content = card.inner_text().strip()
+                # Lọc chỉ lấy các khối chứa thông tin item thực sự (có chứa chữ giới hạn hoặc giá)
+                if text_content and ("Giới hạn" in text_content or "Daily limit" in text_content):
+                    lines = [line.strip() for line in text_content.split('\n') if line.strip()]
+                    
+                    if len(lines) >= 3:
+                        # Dòng chứa tên item (thường là dòng phía trên chữ giới hạn)
+                        item_name = lines[0]
+                        if "Thương Nhân" in item_name or "Asia" in item_name:
+                            item_name = lines[1] if len(lines) > 1 else "Vật phẩm đặc biệt"
+                            
+                        item_limit = lines[-2] if len(lines) >= 2 else "Daily limit: 5"
+                        item_price = lines[-1] if len(lines) >= 1 else "32.000"
                         
                         items_list.append({
                             "name": item_name,
                             "limit": item_limit,
                             "price": item_price
                         })
+            
+            # Nếu bộ lọc trên chưa bắt được, ta ép lấy danh sách các thẻ sản phẩm cụ thể qua cấu trúc tên
+            if not items_list:
+                # Quét các thẻ có chứa tên vật phẩm game thực tế
+                all_divs = page.locator("div").all()
+                for d in all_divs:
+                    t = d.inner_text().strip()
+                    if "Lõi Hành Trang" in t or "Cát Sao" in t or "Tình Thế Vô Định" in t:
+                        lines = [l.strip() for l in t.split('\n') if l.strip()]
+                        if len(lines) >= 3:
+                            items_list.append({
+                                "name": lines[0],
+                                "limit": lines[1],
+                                "price": lines[2]
+                            })
+                            break
+                            
         except Exception as e:
             print(f"⚠️ Lỗi khi trích xuất DOM: {e}")
 
         browser.close()
 
-    # Cơ chế kiểm tra bảo vệ khắt khe: Nếu vẫn trống thì báo lỗi đỏ
+    # Nếu vẫn chưa lấy được, báo lỗi để kiểm tra log
     if not items_list:
-        raise Exception("❌ LỖI DỮ LIỆU THẬT: Không thể trích xuất chi tiết nội dung từ các phần tử tìm thấy.")
+        raise Exception("❌ LỖI DỮ LIỆU THẬT: Không thể trích xuất tên item chính xác từ trang web.")
 
     return {
         "server": server_name,
         "restocks_in": restocks_in,
-        "items": items_list
+        "items": items_list[:3] # Lấy đúng 3 món đầu tiên
     }
 
 def send_discord_webhook(data):
@@ -65,8 +87,8 @@ def send_discord_webhook(data):
     fields = []
     for item in data["items"]:
         fields.append({
-            "name": f"💰 {item['name']}",
-            "value": f"`{item['limit']}`\n **{item['price']}**<:credit:1569277505821474977>",
+            "name": f"✨ {item['name']}",
+            "value": f"🛒 `{item['limit']}`\n **{item['price']}**<:credit:1569277505821474977>",
             "inline": True
         })
 
@@ -75,7 +97,7 @@ def send_discord_webhook(data):
         "avatar_url": "https://aniidex.com/favicon.ico",
         "embeds": [
             {
-                "title": f"💰 Thương nhân bí ẩn ({data['server']})",
+                "title": f"🛍️ Thương nhân bí ẩn ({data['server']})",
                 "description": f"**Đơn hàng hôm nay**\n⏳ *Restocks in: {data['restocks_in']}*",
                 "color": 0x9B59B6,
                 "fields": fields,
@@ -93,7 +115,7 @@ def send_discord_webhook(data):
     if response.status_code not in [200, 204]:
         raise Exception(f"Discord từ chối nhận Webhook, mã lỗi: {response.status_code} - {response.text}")
     
-    print("✅ Đã cào dữ liệu thành công và gửi thông báo lên Discord!")
+    print("✅ Đã cập nhật và gửi tên item chuẩn xác lên Discord!")
 
 if __name__ == "__main__":
     try:
