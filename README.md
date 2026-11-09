@@ -1,0 +1,1 @@
+# aniimo-vendor-bot
