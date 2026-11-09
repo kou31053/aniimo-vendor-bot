@@ -7,34 +7,43 @@ import requests
 DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL")
 
 def fetch_live_vendor_data():
-    print("🔄 Đang khởi động trình duyệt ảo để tải dữ liệu động từ Aniidex...")
+    print("🔄 Đang khởi động trình duyệt ảo để cào dữ liệu động...")
     
     with sync_playwright() as p:
-        # Mở trình duyệt ẩn danh chạy ngầm
+        # Chạy trình duyệt ẩn danh
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         
-        # Truy cập vào trang tiếng Việt
+        # Truy cập trang web
         page.goto("https://aniidex.com/vi/", timeout=60000)
         
-        # Đợi một chút để các thành phần JavaScript và popup shop render hoàn tất
-        time.sleep(5) 
+        # Đợi trang tải xong và bấm vào mục Thương Nhân Bí Ân nếu cần thiết, 
+        # hoặc chờ các thẻ item xuất hiện trên DOM
+        time.sleep(6)
         
         items_list = []
         restocks_in = "Đang cập nhật..."
         server_name = "máy chủ Châu Á - Thái Bình Dương"
 
-        # Tự động quét các phần tử hiển thị item trên trang thực tế
-        # (Playwright sẽ đọc trực tiếp DOM sau khi trang đã render xong)
-        
-        # Ví dụ cấu trúc trích xuất (Code sẽ tự động tìm các khối item được render ra):
-        # Bạn có thể bổ sung hoặc để script tự quét các thẻ chứa thông tin
-        
+        # Quét các phần tử hiển thị item trên giao diện tiếng Việt thực tế
+        # Thử tìm các khối chứa thông tin sản phẩm
+        try:
+            # Code quét tự động các item card trên trang sau khi JS đã render
+            # (Chúng ta sẽ trích xuất text trực tiếp từ các thẻ HTML hiển thị)
+            item_elements = page.locator(".vendor-item, div:has-text('Giới hạn ngày'), div:has-text('Daily limit')").all()
+            
+            # Nếu tìm thấy các phần tử, tiến hành bóc tách
+            # (Tạm thời in ra số lượng tìm thấy để kiểm tra trên log)
+            print(f"🔍 Số lượng phần tử tìm thấy trên trang: {len(item_elements)}")
+            
+        except Exception as e:
+            print(f"⚠️ Chưa quét được DOM: {e}")
+
         browser.close()
 
-    # Cơ chế bảo vệ khắt khe: Bắt buộc phải có dữ liệu thật mới cho qua, nếu trống sẽ báo lỗi đỏ
+    # Cơ chế bảo vệ khắt khe: Bắt buộc phải có dữ liệu thật mới cho qua
     if not items_list:
-        raise Exception("❌ LỖI DỮ LIỆU THẬT: Trình duyệt ảo đã tải trang nhưng chưa quét được danh sách item. Cần tinh chỉnh selector quét DOM.")
+        raise Exception("❌ LỖI DỮ LIỆU THẬT: Trình duyệt ảo đã chạy nhưng danh sách item đang trống. Hãy kiểm tra lại logic quét selector.")
 
     return {
         "server": server_name,
@@ -77,7 +86,7 @@ def send_discord_webhook(data):
     if response.status_code not in [200, 204]:
         raise Exception(f"Discord từ chối nhận Webhook, mã lỗi: {response.status_code} - {response.text}")
     
-    print("✅ Đã cào dữ liệu động và gửi thông báo thành công lên Discord!")
+    print("✅ Đã gửi thông báo thành công lên Discord!")
 
 if __name__ == "__main__":
     try:
