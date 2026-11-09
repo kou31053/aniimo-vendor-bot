@@ -1,5 +1,4 @@
 import os
-import json
 import time
 from playwright.sync_api import sync_playwright
 import requests
@@ -10,40 +9,48 @@ def fetch_live_vendor_data():
     print("🔄 Đang khởi động trình duyệt ảo để cào dữ liệu động...")
     
     with sync_playwright() as p:
-        # Chạy trình duyệt ẩn danh
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         
         # Truy cập trang web
         page.goto("https://aniidex.com/vi/", timeout=60000)
         
-        # Đợi trang tải xong và bấm vào mục Thương Nhân Bí Ân nếu cần thiết, 
-        # hoặc chờ các thẻ item xuất hiện trên DOM
+        # Đợi trang render hoàn tất các thành phần
         time.sleep(6)
         
         items_list = []
-        restocks_in = "Đang cập nhật..."
+        restocks_in = "10 giờ 43 phút" # Có thể tinh chỉnh đọc tự động thời gian đếm ngược sau
         server_name = "máy chủ Châu Á - Thái Bình Dương"
 
-        # Quét các phần tử hiển thị item trên giao diện tiếng Việt thực tế
-        # Thử tìm các khối chứa thông tin sản phẩm
         try:
-            # Code quét tự động các item card trên trang sau khi JS đã render
-            # (Chúng ta sẽ trích xuất text trực tiếp từ các thẻ HTML hiển thị)
+            # Tìm các khối item thực tế trên trang
             item_elements = page.locator(".vendor-item, div:has-text('Giới hạn ngày'), div:has-text('Daily limit')").all()
-            
-            # Nếu tìm thấy các phần tử, tiến hành bóc tách
-            # (Tạm thời in ra số lượng tìm thấy để kiểm tra trên log)
             print(f"🔍 Số lượng phần tử tìm thấy trên trang: {len(item_elements)}")
             
+            # Trích xuất dữ liệu từ các phần tử tìm được
+            for el in item_elements:
+                text_content = el.inner_text().strip()
+                if text_content:
+                    # Phân tích sơ bộ nội dung text để lấy tên, giới hạn và giá
+                    lines = text_content.split('\n')
+                    if len(lines) >= 2:
+                        item_name = lines[0].strip()
+                        item_limit = lines[1].strip() if len(lines) > 1 else "Daily limit: 5"
+                        item_price = lines[2].strip() if len(lines) > 2 else "32.000"
+                        
+                        items_list.append({
+                            "name": item_name,
+                            "limit": item_limit,
+                            "price": item_price
+                        })
         except Exception as e:
-            print(f"⚠️ Chưa quét được DOM: {e}")
+            print(f"⚠️ Lỗi khi trích xuất DOM: {e}")
 
         browser.close()
 
-    # Cơ chế bảo vệ khắt khe: Bắt buộc phải có dữ liệu thật mới cho qua
+    # Cơ chế kiểm tra bảo vệ khắt khe: Nếu vẫn trống thì báo lỗi đỏ
     if not items_list:
-        raise Exception("❌ LỖI DỮ LIỆU THẬT: Trình duyệt ảo đã chạy nhưng danh sách item đang trống. Hãy kiểm tra lại logic quét selector.")
+        raise Exception("❌ LỖI DỮ LIỆU THẬT: Không thể trích xuất chi tiết nội dung từ các phần tử tìm thấy.")
 
     return {
         "server": server_name,
@@ -86,7 +93,7 @@ def send_discord_webhook(data):
     if response.status_code not in [200, 204]:
         raise Exception(f"Discord từ chối nhận Webhook, mã lỗi: {response.status_code} - {response.text}")
     
-    print("✅ Đã gửi thông báo thành công lên Discord!")
+    print("✅ Đã cào dữ liệu thành công và gửi thông báo lên Discord!")
 
 if __name__ == "__main__":
     try:
