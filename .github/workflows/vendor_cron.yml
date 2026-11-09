@@ -1,7 +1,6 @@
 name: Run Mysterious Vendor Notifier
 
 on:
-  # Lịch tự động chạy
   schedule:
     - cron: '0 20 * * *'
   workflow_dispatch:
@@ -20,7 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests
+          pip install requests beautifulsoup4
 
       - name: Run script
         env:
