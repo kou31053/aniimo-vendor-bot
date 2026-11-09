@@ -11,7 +11,7 @@ def fetch_live_vendor_data():
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    print("🔄 Đang kết nối trực tiếp tới Aniidex (Tiếng Việt)...")
+    print("🔄 Đang kết nối trực tiếp tới Aniidex (Tiếng Việt) để lấy dữ liệu tự động...")
     response = requests.get(url, headers=headers, timeout=15)
     
     if response.status_code != 200:
@@ -23,30 +23,27 @@ def fetch_live_vendor_data():
     restocks_in = "Đang cập nhật..."
     server_name = "máy chủ Châu Á - Thái Bình Dương"
 
-    # Cách 1: Quét thẻ chứa dữ liệu JSON cốt lõi của Next.js trên trang
+    # Trích xuất cục dữ liệu JSON ẩn (__NEXT_DATA__) mà trang web Next.js sử dụng
     next_data_script = soup.find('script', id='__NEXT_DATA__')
-    if next_data_script:
-        try:
-            json_data = json.loads(next_data_script.string)
-            # Tại đây ta trích xuất dữ liệu shop từ cây JSON của Next.js
-            # (Cấu trúc đường dẫn props tùy thuộc vào cách trang web định nghĩa)
-            page_props = json_data.get('props', {}).get('pageProps', {})
-            
-            # Giả lập trích xuất nếu tìm thấy key chứa vendor hoặc items trong pageProps
-            # Ví dụ: vendor_raw = page_props.get('vendor', {})
-        except Exception as e:
-            print(f"⚠️ Không thể parse dữ liệu JSON từ Next.js: {e}")
+    if not next_data_script:
+        raise Exception("❌ Không tìm thấy khối dữ liệu cấu trúc __NEXT_DATA__ trên trang web.")
 
-    # Cách 2: Quét trực tiếp các thẻ HTML hiển thị item trên trang tiếng Việt nếu có sẵn
-    # Ví dụ dựa trên giao diện bạn chụp: tên item, giới hạn, giá tiền
-    # (Nếu trang render động hoàn toàn qua client-side JS, ta sẽ bắt buộc phải đọc qua API endpoint đã thấy trong tab Network)
-    
-    # -------------------------------------------------------------------------
-    # KIỂM TRA CHẶT CHẼ: BẮT BUỘC PHẢI CÓ DỮ LIỆU THẬT, KHÔNG DÙNG DỮ LIỆU GIẢ
-    # -------------------------------------------------------------------------
+    try:
+        json_data = json.loads(next_data_script.string)
+        page_props = json_data.get('props', {}).get('pageProps', {})
+        
+        # In ra log GitHub toàn bộ cấu trúc keys để kiểm tra dữ liệu thực tế bên trong web
+        print(f"🔍 Dữ liệu thô từ trang web: {list(page_props.keys())}")
+        
+        # Code sẽ tự động dò tìm dữ liệu shop bên trong page_props tại đây
+        # (Ví dụ: duyệt qua các nhánh để lấy tên item, limit, price)
+        
+    except Exception as e:
+        raise Exception(f"❌ Lỗi giải mã dữ liệu JSON từ trang web: {e}")
+
+    # Cơ chế bảo vệ: Bắt buộc phải có dữ liệu thật mới gửi, nếu trống sẽ báo lỗi đỏ
     if not items_list:
-        # Nếu danh sách trống, văng lỗi ngay để GitHub Actions báo đỏ (Failed)
-        raise Exception("❌ LỖI DỮ LIỆU THẬT: Không thể tự động bóc tách được danh sách item từ trang web hôm nay. Vui lòng kiểm tra lại cấu trúc HTML hoặc API endpoint.")
+        raise Exception("❌ LỖI: Bot đã kết nối thành công nhưng danh sách item đang trống. Hãy kiểm tra tab Log của GitHub Actions để xem cấu trúc dữ liệu thô vừa được in ra.")
 
     return {
         "server": server_name,
@@ -89,7 +86,7 @@ def send_discord_webhook(data):
     if response.status_code not in [200, 204]:
         raise Exception(f"Discord từ chối nhận Webhook, mã lỗi: {response.status_code} - {response.text}")
     
-    print("✅ Đã gửi thông báo dữ liệu thật lên Discord thành công!")
+    print("✅ Đã tự động cào và gửi thông tin thành công lên Discord!")
 
 if __name__ == "__main__":
     try:
@@ -97,4 +94,4 @@ if __name__ == "__main__":
         send_discord_webhook(vendor_data)
     except Exception as e:
         print(f"❌ XẢY RA LỖI: {e}")
-        exit(1)  # Báo lỗi đỏ trên GitHub Actions nếu có sự cố
+        exit(1)
