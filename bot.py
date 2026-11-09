@@ -1,5 +1,6 @@
 import os
 import time
+import json
 from playwright.sync_api import sync_playwright
 import requests
 
@@ -19,7 +20,7 @@ def fetch_live_vendor_data():
         time.sleep(6)
         
         items_list = []
-        restocks_in = "10 giờ 43 phút" # Có thể tinh chỉnh đọc tự động thời gian đếm ngược sau
+        restocks_in = "10 giờ 43 phút"
         server_name = "máy chủ Châu Á - Thái Bình Dương"
 
         try:
@@ -31,7 +32,6 @@ def fetch_live_vendor_data():
             for el in item_elements:
                 text_content = el.inner_text().strip()
                 if text_content:
-                    # Phân tích sơ bộ nội dung text để lấy tên, giới hạn và giá
                     lines = text_content.split('\n')
                     if len(lines) >= 2:
                         item_name = lines[0].strip()
